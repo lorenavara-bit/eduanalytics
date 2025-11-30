@@ -1,0 +1,8 @@
+import React, { useState, useEffect } from 'react';
+import { Camera, BookOpen, FileText, BarChart3, Brain... } from 'lucide-react';
+
+const EduAnalyticsApp = () => {
+  // ... todo el código de la app
+};
+
+export default EduAnalyticsApp;

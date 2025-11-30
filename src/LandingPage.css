@@ -1,0 +1,151 @@
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #f7f8fc;
+    color: #2d3748;
+}
+
+.landing-header {
+    padding: 60px 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: relative;
+}
+
+.landing-nav {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.nav-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: 0.2s;
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.landing-header h1 {
+    font-size: 3.2em;
+    margin-bottom: 10px;
+    margin-top: 20px;
+}
+
+.landing-header p {
+    font-size: 1.3em;
+    opacity: 0.9;
+}
+
+.landing-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.landing-section h2 {
+    font-size: 2.2em;
+    margin-bottom: 10px;
+    color: #2d3748;
+}
+
+.landing-section {
+    margin-bottom: 70px;
+}
+
+.feature-box {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    margin: 20px 0;
+}
+
+.feature-box h3 {
+    margin-top: 0;
+    color: #4a5568;
+}
+
+.feature-box ul {
+    padding-left: 20px;
+}
+
+.feature-box li {
+    margin-bottom: 10px;
+}
+
+.cta {
+    text-align: center;
+    margin-top: 50px;
+}
+
+.cta button {
+    padding: 15px 35px;
+    border: none;
+    border-radius: 50px;
+    background: #667eea;
+    color: white;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.cta button:hover {
+    background: #556cd6;
+    transform: translateY(-2px);
+}
+
+.highlight {
+    background: #edf2ff;
+    border-left: 4px solid #667eea;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 30px 0;
+}
+
+.landing-form {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.landing-input {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1em;
+    border-radius: 8px;
+    border: 1px solid #cbd5e0;
+    box-sizing: border-box;
+}
+
+.landing-submit {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1em;
+    border-radius: 8px;
+    border: none;
+    background: #667eea;
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.landing-submit:hover {
+    background: #556cd6;
+}
+
+.landing-footer {
+    padding: 40px 20px;
+    text-align: center;
+    color: #718096;
+    font-size: 0.95em;
+}
