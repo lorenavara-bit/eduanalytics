@@ -26,6 +26,8 @@ import {
     Legend,
     Filler
 } from 'chart.js';
+import { useRole } from '../contexts/RoleContext';
+import { useAIFunctions } from '../contexts/AIFunctionContext';
 
 // Register ChartJS components
 ChartJS.register(
@@ -41,7 +43,11 @@ ChartJS.register(
     Filler
 );
 
-const FeedbackDashboard = ({ session, userProfile, callGeminiAPI }) => {
+const FeedbackDashboard = () => {
+    // Get data from contexts
+    const { session, userProfile } = useRole();
+    const { callGeminiAPI } = useAIFunctions();
+
     const [loading, setLoading] = useState(true);
     const [generatingReport, setGeneratingReport] = useState(false);
     const [studentProfile, setStudentProfile] = useState(null);

@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, Brain, TrendingUp, Sparkles, CheckCircle, ArrowRight, Upload, FileText, Zap, Users, Star, Shield } from 'lucide-react';
 
-const LandingPage = ({ onGetStarted, onLogin }) => {
+const LandingPage = () => {
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
+
+    const handleLogin = () => {
+        navigate('/login');
+    };
+
+    const handleGetStarted = (emailValue) => {
+        // Podríamos pasar el email como state si quisiéramos pre-llenarlo
+        navigate('/signup', { state: { email: emailValue || email } });
+    };
 
     const features = [
         {
@@ -73,13 +84,13 @@ const LandingPage = ({ onGetStarted, onLogin }) => {
                     </div>
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={onLogin}
+                            onClick={handleLogin}
                             className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
                         >
                             Iniciar Sesión
                         </button>
                         <button
-                            onClick={() => onGetStarted(email)}
+                            onClick={() => handleGetStarted(email)}
                             className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
                         >
                             Empezar Gratis
@@ -115,7 +126,7 @@ const LandingPage = ({ onGetStarted, onLogin }) => {
                                     className="px-6 py-4 border-2 border-gray-300 rounded-xl text-lg focus:outline-none focus:border-blue-500 flex-1"
                                 />
                                 <button
-                                    onClick={() => onGetStarted(email)}
+                                    onClick={() => handleGetStarted(email)}
                                     className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                                 >
                                     Prueba Gratis
@@ -302,7 +313,7 @@ const LandingPage = ({ onGetStarted, onLogin }) => {
                             className="w-full px-6 py-4 rounded-xl text-gray-900 text-lg focus:outline-none focus:ring-4 focus:ring-white/50"
                         />
                         <button
-                            onClick={() => onGetStarted('')}
+                            onClick={() => handleGetStarted('')}
                             className="w-full sm:w-auto px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold text-lg hover:shadow-2xl transition-all whitespace-nowrap"
                         >
                             Comenzar Gratis

@@ -1,13 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { User, Mail, Lock } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function Auth({ initialEmail = '', initialIsSignUp = false }) {
+export default function Auth() {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Get initial state from navigation if available
+    const initialEmail = location.state?.email || '';
+    const initialIsSignUp = location.pathname === '/signup';
+
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState(initialEmail);
     const [password, setPassword] = useState('');
     const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
     const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        setIsSignUp(location.pathname === '/signup');
+    }, [location.pathname]);
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -28,8 +40,11 @@ export default function Auth({ initialEmail = '', initialIsSignUp = false }) {
                     password,
                 });
                 if (error) throw error;
+                // Redirect on success
+                navigate('/app');
             }
         } catch (error) {
+            console.error('Auth error:', error);
             setMessage(error.message);
         } finally {
             setLoading(false);
@@ -94,7 +109,7 @@ export default function Auth({ initialEmail = '', initialIsSignUp = false }) {
                 </form>
                 <div className="text-center">
                     <button
-                        onClick={() => setIsSignUp(!isSignUp)}
+                        onClick={() => navigate(isSignUp ? '/login' : '/signup')}
                         className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
                     >
                         {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}

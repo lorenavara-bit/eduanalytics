@@ -1,0 +1,847 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../supabaseClient';
+
+// Audio Recording States
+const [audioAnswers, setAudioAnswers] = useState({});
+const [recording, setRecording] = useState(null);
+const [mediaRecorder, setMediaRecorder] = useState(null);
+const [transcribing, setTranscribing] = useState(null);
+const audioChunks = useRef([]);
+
+// Worksheet Configuration
+const [selectedSubject, setSelectedSubject] = useState('');
+const [difficultyLevel, setDifficultyLevel] = useState('intermedio');
+const [worksheetType, setWorksheetType] = useState('worksheet');
+const [numQuestions, setNumQuestions] = useState(10);
+
+// ✅ NUEVAS FUNCIONALIDADES
+const [availableMaterials, setAvailableMaterials] = useState([]);
+const [selectedMaterials, setSelectedMaterials] = useState([]);
+const [studentConsiderations, setStudentConsiderations] = useState('');
+const [recordingConsiderations, setRecordingConsiderations] = useState(false);
+const [transcribingConsiderations, setTranscribingConsiderations] = useState(false);
+
+// ✅ ASIGNATURAS DINÁMICAS desde BD
+const [availableSubjects, setAvailableSubjects] = useState([]);
+const [loadingSubjects, setLoadingSubjects] = useState(true);
+
+const difficultyLevels = [
+    { value: 'básico', label: 'Básico', icon: '⭐', description: 'Conceptos fundamentales' },
+    { value: 'intermedio', label: 'Intermedio', icon: '⭐⭐', description: 'Nivel estándar' },
+    { value: 'avanzado', label: 'Avanzado', icon: '⭐⭐⭐', description: 'Desafío' }
+];
+
+const worksheetTypes = [
+    { value: 'worksheet', label: 'Ficha de Ejercicios', icon: '📝' },
+    { value: 'exam', label: 'Examen / Test', icon: '📊' }
+];
+
+// ==================== CARGAR ASIGNATURAS Y MATERIALES DINÁMICAMENTE ====================
+useEffect(() => {
+    loadAvailableSubjects();
+    loadAvailableMaterials();
+}, []);
+
+const loadAvailableSubjects = async () => {
+    setLoadingSubjects(true);
+    try {
+        // ✅ CAMBIADO: Ahora carga desde 'subjects' (misma tabla que "Subir Material")
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+            const { data, error } = await supabase
+                .from('subjects')
+                .select('name')
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const subjectNames = data.map(item => item.name).sort();
+                setAvailableSubjects(subjectNames);
+                console.log('✅ Asignaturas cargadas desde "subjects":', subjectNames);
+            } else {
+                // Si no hay asignaturas, usar las por defecto
+                setAvailableSubjects(['Matemáticas', 'Lengua Castellana', 'Ciencias Naturales', 'Ciencias Sociales', 'Inglés']);
+                console.log('⚠️ No hay asignaturas guardadas, usando por defecto');
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error al cargar asignaturas:', error);
+        setAvailableSubjects(['Matemáticas', 'Lengua Castellana', 'Ciencias Naturales', 'Ciencias Sociales', 'Inglés']);
+    } finally {
+        setLoadingSubjects(false);
+    }
+};
+
+const loadAvailableMaterials = async () => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+            const { data, error } = await supabase
+                .from('materials')
+                .select('id, title, subject, type')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data) {
+                setAvailableMaterials(data);
+                console.log('✅ Materiales cargados:', data.length);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error al cargar materiales:', error);
+    }
+};
+
+// ==================== FUNCIONES DE GRABACIÓN DE VOZ ====================
+const startRecording = async (questionId) => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+
+        audioChunks.current = [];
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                audioChunks.current.push(e.data);
+            }
+        };
+
+        recorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            setAudioAnswers(prev => ({
+                ...prev,
+                [questionId]: {
+                    blob: audioBlob,
+                    url: audioUrl,
+                    transcription: null
+                }
+            }));
+
+            // ✅ AUTO-TRANSCRIBIR
+            transcribeAudio(questionId, audioBlob);
+
+            // Detener todas las pistas
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        recorder.start();
+        setMediaRecorder(recorder);
+        setRecording(questionId);
+
+    } catch (error) {
+        console.error('Error accessing microphone:', error);
+        alert('No se pudo acceder al micrófono. Por favor, verifica los permisos en tu navegador.');
+    }
+};
+
+const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        setRecording(null);
+        setMediaRecorder(null);
+    }
+};
+
+// ✅ TRANSCRIPCIÓN AUTOMÁTICA usando Gemini API
+const transcribeAudio = async (questionId, audioBlob) => {
+    setTranscribing(questionId);
+    try {
+        console.log('🎤 Transcribiendo audio para pregunta', questionId);
+
+        // Convertir audio blob a base64
+        const reader = new FileReader();
+        const base64Audio = await new Promise((resolve, reject) => {
+            reader.onloadend = () => {
+                const base64String = reader.result.split(',')[1];
+                resolve(base64String);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(audioBlob);
+        });
+
+        // Llamar a Gemini API con audio
+        const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+
+        if (!API_KEY) {
+            throw new Error('API Key no configurada. Verifica tu archivo .env');
+        }
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            {
+                                text: `Transcribe el siguiente audio a texto en español. Devuelve SOLAMENTE el texto transcrito, sin formato adicional. Corrige ortografía y puntuación naturalmente.`
+                            },
+                            {
+                                inline_data: {
+                                    mime_type: 'audio/webm',
+                                    data: base64Audio
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 1000,
+                    }
+                })
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+            || '[No se pudo transcribir el audio]';
+
+        console.log('✅ Transcripción:', transcription);
+
+        // Actualizar estado con transcripción
+        setAudioAnswers(prev => ({
+            ...prev,
+            [questionId]: {
+                ...prev[questionId],
+                transcription: transcription
+            }
+        }));
+
+        // ✅ IMPORTANTE: También poblar el campo de texto de respuesta
+        setStudentAnswers(prev => ({
+            ...prev,
+            [questionId]: transcription
+        }));
+
+    } catch (error) {
+        console.error('❌ Error al transcribir:', error);
+
+        setAudioAnswers(prev => ({
+            ...prev,
+            [questionId]: {
+                ...prev[questionId],
+                transcription: '[Error al transcribir. Por favor, escribe tu respuesta o vuelve a grabar.]'
+            }
+        }));
+
+        alert('Error al transcribir el audio: ' + error.message + '\nPuedes escribir tu respuesta manualmente o intentar grabar de nuevo.');
+    } finally {
+        setTranscribing(null);
+    }
+};
+
+const deleteAudioAnswer = (questionId) => {
+    setAudioAnswers(prev => {
+        const newState = { ...prev };
+        delete newState[questionId];
+        return newState;
+    });
+};
+
+// ==================== GRABAR CONSIDERACIONES ====================
+const startRecordingConsiderations = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = async () => {
+            const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+            await transcribeConsiderations(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        recorder.start();
+        setMediaRecorder(recorder);
+        setRecordingConsiderations(true);
+    } catch (error) {
+        console.error('Error al grabar:', error);
+        alert('No se pudo acceder al micrófono');
+    }
+};
+
+const stopRecordingConsiderations = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        setRecordingConsiderations(false);
+        setMediaRecorder(null);
+    }
+};
+
+const transcribeConsiderations = async (audioBlob) => {
+    setTranscribingConsiderations(true);
+    try {
+        const reader = new FileReader();
+        const base64Audio = await new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(audioBlob);
+        });
+
+        const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+        if (!API_KEY) throw new Error('API Key no configurada');
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: 'Transcribe el siguiente audio a texto en español. Solo devuelve el texto transcrito.' },
+                            { inline_data: { mime_type: 'audio/webm', data: base64Audio } }
+                        ]
+                    }],
+                    generationConfig: { temperature: 0.3, maxOutputTokens: 1000 }
+                })
+            }
+        );
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+        const data = await response.json();
+        const transcription = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '[Error de transcripción]';
+
+        setStudentConsiderations(prev => prev ? `${prev}\n${transcription}` : transcription);
+        console.log('✅ Consideraciones transcritas');
+    } catch (error) {
+        console.error('❌ Error al transcribir consideraciones:', error);
+        alert('Error al transcribir: ' + error.message);
+    } finally {
+        setTranscribingConsiderations(false);
+    }
+};
+
+// ==================== GENERAR FICHA ====================
+const generateWorksheet = async () => {
+    if (!selectedSubject) {
+        alert('Por favor, selecciona una asignatura');
+        return;
+    }
+
+    setLoading(true);
+    try {
+        const typeText = worksheetType === 'exam' ? 'EXAMEN' : 'FICHA DE EJERCICIOS';
+
+        // Preparar información de materiales seleccionados
+        let materialsContext = '';
+        if (selectedMaterials.length > 0) {
+            const selectedMaterialsInfo = availableMaterials
+                .filter(m => selectedMaterials.includes(m.id))
+                .map(m => `- ${m.title} (${m.type})`)
+                .join('\n');
+
+            materialsContext = `\n\nMATERIALES DE REFERENCIA QUE DEBES USAR:
+El estudiante ha seleccionado estos materiales como referencia. Genera las preguntas basándote en el contenido de estos materiales:
+${selectedMaterialsInfo}
+`;
+        }
+
+        // Preparar consideraciones del estudiante
+        let considerationsContext = '';
+        if (studentConsiderations.trim()) {
+            considerationsContext = `\n\nCONSIDERACIONES DEL ESTUDIANTE:
+El estudiante ha añadido estas notas que debes tener en cuenta al generar las preguntas:
+"${studentConsiderations}"
+`;
+        }
+
+        const prompt = `
+Eres un profesor experto del sistema educativo español (LOMLOE). Genera un ${typeText}.
+
+ESTUDIANTE:
+- Nombre: ${userProfile.name || 'Estudiante'}
+- Curso: ${userProfile.grade || 'Primaria'}
+- Edad: ${userProfile.age || 8} años${materialsContext}${considerationsContext}
+
+CONFIGURACIÓN:
+- Asignatura: ${selectedSubject}
+- Dificultad: ${difficultyLevel}
+- Número de preguntas: ${numQuestions}
+- Tipo: ${worksheetType}
+
+Genera ${numQuestions} preguntas de calidad apropiadas para el nivel${selectedMaterials.length > 0 ? ', BASÁNDOTE EN LOS MATERIALES INDICADOS' : ''}${studentConsiderations ? ', y TENIENDO EN CUENTA LAS CONSIDERACIONES DEL ESTUDIANTE' : ''}.
+
+RESPONDE ÚNICAMENTE CON JSON:
+{
+  "title": "Título del ${typeText}",
+  "subject": "${selectedSubject}",
+  "grade_level": "${userProfile.grade || 'Primaria'}",
+  "questions": [
+    {
+      "id": 1,
+      "question": "Pregunta completa",
+      "type": "short_answer",
+      "points": 2
+    }
+  ],
+  "answer_key": [
+    {
+      "question_id": 1,
+      "correct_answer": "Respuesta correcta",
+      "explanation": "Explicación de por qué es correcta"
+    }
+  ]
+}
+            `.trim();
+
+        const resultText = await callGeminiAPI(prompt);
+        const jsonString = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const worksheetData = JSON.parse(jsonString);
+
+        setGeneratedWorksheet(worksheetData);
+        setStudentAnswers({});
+        setCorrectionResult(null);
+        setAudioAnswers({});
+
+    } catch (error) {
+        console.error('Error generando ficha:', error);
+        alert(`Error: ${error.message}`);
+    } finally {
+        setLoading(false);
+    }
+};
+
+// ==================== CORREGIR FICHA ====================
+const correctWorksheet = async () => {
+    setLoading(true);
+    try {
+        const questionsWithAnswers = generatedWorksheet.questions.map(q => ({
+            ...q,
+            student_answer: studentAnswers[q.id] || 'Sin respuesta',
+            correct_answer: generatedWorksheet.answer_key.find(a => a.question_id === q.id)?.correct_answer
+        }));
+
+        const prompt = `
+Eres un profesor experto. Corrige este ${generatedWorksheet.subject} de ${userProfile.grade}.
+
+PREGUNTAS Y RESPUESTAS:
+${questionsWithAnswers.map(q => `
+Pregunta ${q.id}: ${q.question}
+Respuesta del estudiante: ${q.student_answer}
+Respuesta correcta: ${q.correct_answer}
+`).join('\n')}
+
+RESPONDE CON JSON:
+{
+  "score": 85,
+  "correct_answers": 8,
+  "total_questions": ${generatedWorksheet.questions.length},
+  "feedback": "Comentario general para el estudiante",
+  "question_breakdown": [
+    {
+      "question_id": 1,
+      "is_correct": true,
+      "feedback": "¡Excelente! Muy bien explicado."
+    }
+  ]
+}
+            `.trim();
+
+        const resultText = await callGeminiAPI(prompt);
+        const jsonString = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const correction = JSON.parse(jsonString);
+
+        setCorrectionResult(correction);
+        alert('¡Ficha corregida!');
+
+    } catch (error) {
+        console.error('Error corrigiendo:', error);
+        alert(`Error al corregir: ${error.message}`);
+    } finally {
+        setLoading(false);
+    }
+};
+
+// ==================== RENDER ====================
+return (
+    <div className="space-y-6 px-4 py-6">
+        {!generatedWorksheet && (
+            <Card>
+                <CardHeader>
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                        <Brain className="h-6 w-6 mr-2 text-indigo-600" />
+                        Generador de Fichas Personalizadas
+                    </h2>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* Tipo de Actividad */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                            Tipo de Actividad
+                        </label>
+                        <div className="grid grid-cols-2 gap-4">
+                            {worksheetTypes.map(type => (
+                                <button
+                                    key={type.value}
+                                    onClick={() => setWorksheetType(type.value)}
+                                    className={`p-4 border-2 rounded-lg transition-all ${worksheetType === type.value
+                                        ? 'border-indigo-600 bg-indigo-50 shadow-md'
+                                        : 'border-gray-300 hover:border-indigo-300'
+                                        }`}
+                                >
+                                    <div className="text-2xl mb-2">{type.icon}</div>
+                                    <div className="font-semibold">{type.label}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Asignatura */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Asignatura {loadingSubjects && <span className="text-indigo-600 text-xs ml-2">(Cargando...)</span>}
+                        </label>
+                        <select
+                            value={selectedSubject}
+                            onChange={(e) => setSelectedSubject(e.target.value)}
+                            disabled={loadingSubjects}
+                            className="w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                        >
+                            <option value="">{loadingSubjects ? 'Cargando asignaturas...' : 'Selecciona una asignatura...'}</option>
+                            {availableSubjects.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Dificultad */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                            Nivel de Dificultad
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                            {difficultyLevels.map(level => (
+                                <button
+                                    key={level.value}
+                                    onClick={() => setDifficultyLevel(level.value)}
+                                    className={`p-3 border-2 rounded-lg transition-all ${difficultyLevel === level.value
+                                        ? 'border-indigo-600 bg-indigo-50'
+                                        : 'border-gray-300 hover:border-indigo-300'
+                                        }`}
+                                >
+                                    <div className="text-lg mb-1">{level.icon}</div>
+                                    <div className="font-semibold text-sm">{level.label}</div>
+                                    <div className="text-xs text-gray-600">{level.description}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Número de Preguntas */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Número de Preguntas: <span className="text-indigo-600 font-bold">{numQuestions}</span>
+                        </label>
+                        <input
+                            type="range"
+                            min="5"
+                            max="20"
+                            value={numQuestions}
+                            onChange={(e) => setNumQuestions(parseInt(e.target.value))}
+                            className="w-full"
+                        />
+                    </div>
+
+                    {/* ✅ NUEVO: Seleccionar Materiales */}
+                    <div className="border-t pt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                            📚 Materiales de Referencia (Opcional)
+                        </label>
+                        <p className="text-xs text-gray-600 mb-3">
+                            Selecciona materiales que la IA debe usar como base para generar las preguntas
+                        </p>
+
+                        {availableMaterials.length > 0 ? (
+                            <>
+                                <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                                    {availableMaterials.map(material => (
+                                        <label key={material.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedMaterials.includes(material.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedMaterials([...selectedMaterials, material.id]);
+                                                    } else {
+                                                        setSelectedMaterials(selectedMaterials.filter(id => id !== material.id));
+                                                    }
+                                                }}
+                                                className="rounded text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm flex-1">
+                                                {material.title}
+                                                <span className="text-gray-500 text-xs ml-2">({material.type} - {material.subject})</span>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                                {selectedMaterials.length > 0 && (
+                                    <p className="text-xs text-green-600 mt-2">
+                                        ✓ {selectedMaterials.length} material{selectedMaterials.length > 1 ? 'es' : ''} seleccionado{selectedMaterials.length > 1 ? 's' : ''}
+                                    </p>
+                                )}
+                            </>
+                        ) : (
+                            <div className="border rounded-lg p-4 bg-gray-50 text-center">
+                                <p className="text-sm text-gray-600">
+                                    No tienes materiales subidos aún.
+                                </p>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Ve a "Subir Material" para añadir libros, PDFs o archivos que la IA pueda usar.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ✅ NUEVO: Consideraciones del Estudiante */}
+                    <div className="border-t pt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            💭 Consideraciones Personales (Opcional)
+                        </label>
+                        <p className="text-xs text-gray-600 mb-3">
+                            Añade notas que la IA debe tener en cuenta (ej: "Necesito practicar las tablas del 7", "Me cuesta la ortografía de la B y la V")
+                        </p>
+                        <Textarea
+                            placeholder="Escribe aquí tus consideraciones o usa el micrófono..."
+                            value={studentConsiderations}
+                            onChange={(e) => setStudentConsiderations(e.target.value)}
+                            rows={3}
+                            className="mb-2"
+                        />
+                        <div className="flex items-center gap-2">
+                            {!recordingConsiderations ? (
+                                <Button
+                                    onClick={startRecordingConsiderations}
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                    type="button"
+                                >
+                                    <Mic className="h-4 w-4 mr-2" /> Añadir con Voz
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={stopRecordingConsiderations}
+                                    className="bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                                    size="sm"
+                                    type="button"
+                                >
+                                    <StopCircle className="h-4 w-4 mr-2" /> Detener
+                                </Button>
+                            )}
+                            {transcribingConsiderations && (
+                                <span className="text-xs text-indigo-600 flex items-center gap-1">
+                                    <Loader className="h-3 w-3 animate-spin" /> Transcribiendo...
+                                </span>
+                            )}
+                            {studentConsiderations && (
+                                <Button
+                                    onClick={() => setStudentConsiderations('')}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:bg-red-50"
+                                    type="button"
+                                >
+                                    <Trash2 className="h-4 w-4 mr-1" /> Limpiar
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Botón Generar */}
+                    <Button
+                        onClick={generateWorksheet}
+                        disabled={loading || !selectedSubject}
+                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 font-semibold text-lg flex items-center justify-center shadow-lg"
+                    >
+                        <Zap className="h-6 w-6 mr-2" />
+                        {loading ? 'Generando Ficha...' : `Generar ${worksheetTypes.find(t => t.value === worksheetType)?.label}`}
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
+
+        {/* FICHA GENERADA */}
+        {generatedWorksheet && !correctionResult && (
+            <Card>
+                <CardHeader>
+                    <h2 className="text-2xl font-bold text-gray-900">{generatedWorksheet.title}</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                        {generatedWorksheet.subject} - {generatedWorksheet.grade_level}
+                    </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {generatedWorksheet.questions.map((q, idx) => (
+                        <div key={q.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex justify-between items-start mb-3">
+                                <h3 className="font-semibold text-gray-900">
+                                    {idx + 1}. {q.question}
+                                </h3>
+                                <Badge variant="blue">{q.points} pts</Badge>
+                            </div>
+
+                            {/* Campo de Respuesta de Texto */}
+                            <Textarea
+                                placeholder="Escribe tu respuesta aquí..."
+                                value={studentAnswers[q.id] || ''}
+                                onChange={(e) => setStudentAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                                rows={3}
+                                className="mb-3"
+                            />
+
+                            {/* ✅ BOTONES DE VOZ */}
+                            <div className="flex items-center gap-3">
+                                {!audioAnswers[q.id] ? (
+                                    recording === q.id ? (
+                                        <Button
+                                            onClick={stopRecording}
+                                            className="bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                                            size="sm"
+                                        >
+                                            <StopCircle className="h-4 w-4 mr-2" /> Detener Grabación
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            onClick={() => startRecording(q.id)}
+                                            variant="outline"
+                                            className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                            size="sm"
+                                            disabled={recording !== null}
+                                        >
+                                            <Mic className="h-4 w-4 mr-2" /> Responder con Voz
+                                        </Button>
+                                    )
+                                ) : (
+                                    <div className="flex items-center gap-3 bg-indigo-50 p-2 rounded-lg border border-indigo-100 w-full">
+                                        <audio src={audioAnswers[q.id].url} controls className="h-8 flex-1" />
+
+                                        {transcribing === q.id ? (
+                                            <span className="text-xs text-indigo-600 flex items-center gap-1">
+                                                <Loader className="h-3 w-3 animate-spin" /> Transcribiendo...
+                                            </span>
+                                        ) : (
+                                            <Button
+                                                onClick={() => deleteAudioAnswer(q.id)}
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-500 hover:bg-red-50 hover:text-red-700"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mostrar Transcripción */}
+                            {audioAnswers[q.id]?.transcription && (
+                                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <p className="text-xs font-semibold text-green-900 mb-1">✓ Texto transcrito (puedes editarlo arriba):</p>
+                                    <p className="text-sm text-green-800">{audioAnswers[q.id].transcription}</p>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    <div className="flex gap-3">
+                        <Button
+                            onClick={correctWorksheet}
+                            disabled={loading}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            <CheckCircle className="h-5 w-5 mr-2" />
+                            {loading ? 'Corrigiendo...' : 'Corregir Ficha'}
+                        </Button>
+                        <Button
+                            onClick={() => setGeneratedWorksheet(null)}
+                            variant="outline"
+                        >
+                            Nueva Ficha
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
+        {/* RESULTADOS DE CORRECCIÓN */}
+        {correctionResult && (
+            <Card>
+                <CardHeader>
+                    <h2 className="text-2xl font-bold text-gray-900">Resultados</h2>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-center mb-6">
+                        <div className="text-6xl font-bold text-indigo-600 mb-2">
+                            {correctionResult.score}%
+                        </div>
+                        <p className="text-lg text-gray-600">
+                            {correctionResult.correct_answers} de {correctionResult.total_questions} correctas
+                        </p>
+                    </div>
+
+                    <Alert variant="success" className="mb-6">
+                        <p className="font-semibold mb-2">Comentario del Profesor:</p>
+                        <p>{correctionResult.feedback}</p>
+                    </Alert>
+
+                    <div className="space-y-3">
+                        {correctionResult.question_breakdown?.map((qb, idx) => (
+                            <div
+                                key={idx}
+                                className={`p-3 rounded-lg border-2 ${qb.is_correct
+                                    ? 'bg-green-50 border-green-200'
+                                    : 'bg-red-50 border-red-200'
+                                    }`}
+                            >
+                                <div className="flex items-center mb-2">
+                                    {qb.is_correct ? (
+                                        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                                    ) : (
+                                        <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                                    )}
+                                    <span className="font-semibold">
+                                        Pregunta {qb.question_id}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-700">{qb.feedback}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <Button
+                        onClick={() => {
+                            setGeneratedWorksheet(null);
+                            setCorrectionResult(null);
+                            setStudentAnswers({});
+                            setAudioAnswers({});
+                        }}
+                        className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                        Generar Nueva Ficha
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
+    </div>
+);
+};
+
+export default WorksheetGeneratorComplete;

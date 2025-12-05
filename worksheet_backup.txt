@@ -1,0 +1,100 @@
+﻿standard = {
+    id: 'fallback',
+    ...fallbackCurriculum[selectedSubject],
+    grade_level: userProfile.grade || 'General',
+    subject: selectedSubject
+};
+            } else {
+    alert('No se pudo cargar informaci├│n curricular para esta asignatura');
+    setLoading(false);
+    return;
+}
+
+const difficultyInfo = difficultyLevels.find(d => d.value === difficultyLevel);
+const typeInfo = worksheetTypes.find(t => t.value === worksheetType);
+const typeText = worksheetType === 'exam' ? 'EXAMEN' : 'FICHA DE EJERCICIOS';
+
+const prompt = `
+Eres un profesor experto del sistema educativo espa├▒ol (LOMLOE) con 20 a├▒os de experiencia. Genera un ${typeText} EXACTAMENTE como los que se usan en colegios espa├▒oles.
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒôï INFORMACI├ôN DEL ESTUDIANTE
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+- Nombre: ${userProfile.name || 'Estudiante'}
+- Curso: ${userProfile.grade || 'No especificado'}
+- Edad: ${userProfile.age || 'No especificada'} a├▒os
+${userProfile.interests ? `- Intereses (SOLO para contextualizar problemas matem├íticos): ${userProfile.interests}` : ''}
+${userProfile.observations ? `- Observaciones del profesor: ${userProfile.observations}` : ''}
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒÄ» COMPETENCIA CURRICULAR (LOMLOE)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+- C├│digo: ${standard.competency_code}
+- Competencia: ${standard.competency_name}
+- Descripci├│n: ${standard.description}
+- Objetivos: ${JSON.stringify(standard.learning_goals)}
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔÜÖ´©Å CONFIGURACI├ôN DE LA ACTIVIDAD
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+- Tipo: ${typeInfo.label}
+- Dificultad: ${difficultyInfo.label} - ${difficultyInfo.description}
+- N├║mero de preguntas: ${numQuestions}
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+­ƒôØ PATRONES DE PREGUNTAS DE COLEGIOS ESPA├æOLES (OBLIGATORIO)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+Debes usar una MEZCLA EQUILIBRADA de estos tipos de preguntas t├¡picas de Espa├▒a:
+
+${selectedSubject === 'Matem├íticas' ? `
+**MATEM├üTICAS - CONCEPTOS ESENCIALES PARA ${userProfile.grade}:**
+
+${userProfile.grade?.includes('1┬║') || userProfile.grade?.includes('2┬║') ? `
+- Conceptos clave: n├║mero, suma, resta, unidad, decena, centena, par, impar
+- Errores comunes: confunden valor posicional, piensan que n├║mero mayor siempre tiene m├ís cifras
+` : ''}
+${userProfile.grade?.includes('3┬║') || userProfile.grade?.includes('4┬║') ? `
+- Conceptos clave: multiplicaci├│n, divisi├│n, tabla de multiplicar, fracci├│n, numerador, denominador, per├¡metro, ├írea
+- Errores comunes: confunden multiplicaci├│n con suma, olvidan el resto, confunden per├¡metro con ├írea
+` : ''}
+${userProfile.grade?.includes('5┬║') || userProfile.grade?.includes('6┬║') ? `
+- Conceptos clave: decimal, porcentaje, fracci├│n equivalente, ├írea, volumen, ecuaci├│n, variable
+- Errores comunes: problemas con fracciones equivalentes, confunden ├írea con per├¡metro
+` : ''}
+
+**TIPOS DE PREGUNTAS OBLIGATORIAS:**
+
+1. DEFINICIONES (20-25%):
+   Ô£ô "┬┐Qu├® es un/una [concepto]?" (ej: ┬┐Qu├® es una centena?)
+   Ô£ô "┬┐Qu├® es [concepto]? ┬┐Cu├íntos/as [subconcepto] tiene?" (ej: ┬┐Qu├® es una decena? ┬┐Cu├íntas unidades tiene?)
+   Ô£ô "Explica la diferencia entre [concepto1] y [concepto2]"
+
+2. C├üLCULOS Y OPERACIONES (30-40%):
+   Ô£ô Operaciones directas: "Resuelve: 234 + 156 ="
+   Ô£ô Completa tablas de multiplicar: "7 x ___ = 56"
+   Ô£ô Series num├®ricas: "Completa: 10, 20, ___, 40, ___"
+
+3. PROBLEMAS PR├üCTICOS (25-30%):
+   Ô£ô Problemas de 1 paso (1┬║-2┬║): "Juan tiene 23 caramelos y le dan 15 m├ís. ┬┐Cu├íntos tiene ahora?"
+   Ô£ô Problemas de 2 pasos (3┬║-4┬║): "En una granja hay 235 animales. Si nacen 120 m├ís y venden 50, ┬┐cu├íntos quedan?"
+   ${userProfile.interests ? `Ô£ô PERSONALIZACI├ôN: Usa contextos de "${userProfile.interests}" SOLO en problemas (ej: "Si tu equipo favorito...")` : 'Ô£ô Usa contextos cotidianos: colegio, parque, tienda, casa'}
+
+4. VERDADERO/FALSO con justificaci├│n (10-15%):
+   Ô£ô "Verdadero o Falso: Todos los n├║meros pares terminan en 2, 4, 6, 8 o 0. Justifica tu respuesta."
+
+5. COMPLETAR (10%):
+   Ô£ô "Completa: 3 decenas y 5 unidades = ___"
+   Ô£ô "Ordena de menor a mayor: 450, 235, 540, 120"
+
+` : ''}
+${selectedSubject === 'Lengua Castellana' ? `
+**LENGUA - CONCEPTOS ESENCIALES PARA ${userProfile.grade}:**
+
+${userProfile.grade?.includes('1┬║') || userProfile.grade?.includes('2┬║') ? `
+- Conceptos clave: may├║scula, punto, coma, sustantivo, verbo b├ísico, s├¡laba
+- Errores comunes: no usan may├║scula despu├®s de punto, confunden letra b con d
+` : ''}
+${userProfile.grade?.includes('3┬║') || userProfile.grade?.includes('4┬║') ? `
+- Conceptos clave: sustantivo, verbo, adjetivo, sujeto, predicado, sin├│nimo, ant├│nimo, b/v, g/j, h
+- Errores comunes: confunden sujeto con primera palabra, olvidan la h, confunden b/v

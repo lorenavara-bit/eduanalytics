@@ -15,7 +15,9 @@ const IntelligentWorksheetGenerator = ({ session, userProfile, callGeminiAPI }) 
     const [correctionResult, setCorrectionResult] = useState(null);
     const [conceptsToFocus, setConceptsToFocus] = useState([]);
 
-    const subjects = ['Matemáticas', 'Lengua Castellana', 'Ciencias Naturales', 'Ciencias Sociales'];
+    // Cargar asignaturas dinámicamente desde la base de datos
+    const [subjects, setSubjects] = useState([]);
+    const [loadingSubjects, setLoadingSubjects] = useState(true);
 
     const difficultyLevels = [
         { value: 'básico', label: 'Básico', icon: '⭐', description: 'Conceptos fundamentales' },
@@ -28,11 +30,49 @@ const IntelligentWorksheetGenerator = ({ session, userProfile, callGeminiAPI }) 
         { value: 'exam', label: 'Examen', icon: '📊', description: 'Evaluación' }
     ];
 
+    // Cargar asignaturas disponibles al montar el componente
+    useEffect(() => {
+        loadAvailableSubjects();
+    }, []);
+
     useEffect(() => {
         if (userProfile.grade && selectedSubject) {
             loadCurriculumData();
         }
     }, [userProfile.grade, selectedSubject, difficultyLevel]);
+
+    const loadAvailableSubjects = async () => {
+        setLoadingSubjects(true);
+        try {
+            // ✅ CAMBIADO: Ahora carga desde 'subjects' (misma tabla que "Subir Material")
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (user) {
+                const { data, error } = await supabase
+                    .from('subjects')
+                    .select('name')
+                    .eq('user_id', user.id);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const subjectNames = data.map(item => item.name).sort();
+                    setSubjects(subjectNames);
+                    console.log('✅ Asignaturas cargadas desde "subjects":', subjectNames);
+                } else {
+                    // Si no hay asignaturas, usar las por defecto
+                    console.warn('⚠️ No hay asignaturas guardadas, usando por defecto');
+                    setSubjects(['Matemáticas', 'Lengua Castellana', 'Ciencias Naturales', 'Ciencias Sociales', 'Inglés']);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error al cargar asignaturas:', error);
+            // En caso de error, usar asignaturas por defecto
+            setSubjects(['Matemáticas', 'Lengua Castellana', 'Ciencias Naturales', 'Ciencias Sociales', 'Inglés']);
+        } finally {
+            setLoadingSubjects(false);
+        }
+    };
 
     const calculateAge = (birthDate) => {
         if (!birthDate) return null;
@@ -597,8 +637,8 @@ ${meta.addresses_observations.map(obs => `• ${obs}`).join('\n')}` : ''}
                                         key={type.value}
                                         onClick={() => setWorksheetType(type.value)}
                                         className={`p-4 border-2 rounded-lg transition-all ${worksheetType === type.value
-                                                ? 'border-indigo-600 bg-indigo-50 shadow-md'
-                                                : 'border-gray-300 hover:border-indigo-300'
+                                            ? 'border-indigo-600 bg-indigo-50 shadow-md'
+                                            : 'border-gray-300 hover:border-indigo-300'
                                             }`}
                                     >
                                         <div className="text-2xl mb-2">{type.icon}</div>
@@ -612,14 +652,15 @@ ${meta.addresses_observations.map(obs => `• ${obs}`).join('\n')}` : ''}
                         {/* Subject */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Asignatura
+                                Asignatura {loadingSubjects && <span className="text-indigo-600 text-xs ml-2">(Cargando...)</span>}
                             </label>
                             <select
                                 value={selectedSubject}
                                 onChange={(e) => setSelectedSubject(e.target.value)}
-                                className="w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                disabled={loadingSubjects}
+                                className="w-full px-4 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <option value="">Selecciona...</option>
+                                <option value="">{loadingSubjects ? 'Cargando asignaturas...' : 'Selecciona...'}</option>
                                 {subjects.map(s => (
                                     <option key={s} value={s}>{s}</option>
                                 ))}
@@ -637,8 +678,8 @@ ${meta.addresses_observations.map(obs => `• ${obs}`).join('\n')}` : ''}
                                         key={level.value}
                                         onClick={() => setDifficultyLevel(level.value)}
                                         className={`p-3 border-2 rounded-lg transition-all ${difficultyLevel === level.value
-                                                ? 'border-indigo-600 bg-indigo-50'
-                                                : 'border-gray-300 hover:border-indigo-300'
+                                            ? 'border-indigo-600 bg-indigo-50'
+                                            : 'border-gray-300 hover:border-indigo-300'
                                             }`}
                                     >
                                         <div className="text-lg mb-1">{level.icon}</div>
