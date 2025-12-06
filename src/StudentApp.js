@@ -14,7 +14,7 @@ import { Route, Routes, Navigate } from 'react-router-dom';
 import StudentProfile from './components/StudentProfile';
 import Calendar from './components/Calendar';
 import ParentDashboard from './components/ParentDashboard';
-import WorksheetGenerator from './components/WorksheetGeneratorComplete';
+import GeneratorTabs from './components/GeneratorTabs';
 import ResourcesLibrary from './components/ResourcesLibrary';
 import FeedbackDashboard from './components/FeedbackDashboard';
 
@@ -27,7 +27,7 @@ const StudentApp = () => {
     return (
         <Routes>
             <Route path="profile" element={<StudentProfile />} />
-            <Route path="generator" element={<WorksheetGenerator />} />
+            <Route path="generator" element={<GeneratorTabs />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="feedback" element={<FeedbackDashboard />} />
             <Route path="resources" element={<ResourcesLibrary />} />
