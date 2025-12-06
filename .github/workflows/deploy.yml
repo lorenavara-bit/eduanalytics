@@ -30,4 +30,4 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lftp
-          lftp -e "set ftp:ssl-allow no; mirror -R ./build/ ./public_html --parallel=10 --exclude-glob .git* --exclude-glob .htaccess; quit" -u "${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }}" ${{ secrets.FTP_SERVER }}
+          lftp -d -e "set ftp:ssl-allow no; mirror -R ./build/ ./public_html --parallel=10 --exclude-glob .git* --exclude-glob .htaccess; quit" -u "${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }}" ${{ secrets.FTP_SERVER }}
