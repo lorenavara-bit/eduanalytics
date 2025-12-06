@@ -20,23 +20,21 @@ const StudentLayout = () => {
     const getActiveTab = () => {
         const path = location.pathname;
         if (path.includes('/profile')) return 'profile';
-        if (path.includes('/upload')) return 'upload';
-        if (path.includes('/analyze')) return 'analyze';
+        if (path.includes('/generator')) return 'generator';
         if (path.includes('/calendar')) return 'calendar';
         if (path.includes('/feedback')) return 'feedback';
         if (path.includes('/resources')) return 'resources';
-        return 'upload'; // default
+        return 'generator'; // default
     };
 
     const activeTab = getActiveTab();
 
     const tabs = [
         { id: 'profile', name: 'Mi Perfil', icon: User, path: '/app/student/profile' },
-        { id: 'upload', name: 'Subir Material', icon: Upload, path: '/app/student/upload' },
-        { id: 'analyze', name: 'Analizar Asignatura', icon: Brain, path: '/app/student/analyze' },
+        { id: 'generator', name: 'Generador IA', icon: Brain, path: '/app/student/generator' },
         { id: 'calendar', name: 'Mi Agenda', icon: CalendarIcon, path: '/app/student/calendar' },
-        { id: 'feedback', name: 'Feedback', icon: BarChart3, path: '/app/student/feedback' },
-        { id: 'resources', name: 'Recursos', icon: BookOpen, path: '/app/student/resources' }
+        { id: 'feedback', name: 'Progreso', icon: BarChart3, path: '/app/student/feedback' },
+        { id: 'resources', name: 'Biblioteca', icon: BookOpen, path: '/app/student/resources' }
     ];
 
     const handleTabClick = (tab) => {
@@ -58,8 +56,8 @@ const StudentLayout = () => {
                                     key={tab.id}
                                     onClick={() => handleTabClick(tab)}
                                     className={`flex items-center px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${isActive
-                                            ? 'text-indigo-600 bg-indigo-50'
-                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                        ? 'text-indigo-600 bg-indigo-50'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                         }`}
                                 >
                                     <Icon className="h-4 w-4 mr-2" />

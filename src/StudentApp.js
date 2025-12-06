@@ -27,15 +27,13 @@ const StudentApp = () => {
     return (
         <Routes>
             <Route path="profile" element={<StudentProfile />} />
-            {/* AMBOS 'upload' y 'analyze' usan el Generador de Fichas actualmente */}
-            <Route path="upload" element={<WorksheetGenerator />} />
-            <Route path="analyze" element={<WorksheetGenerator />} />
+            <Route path="generator" element={<WorksheetGenerator />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="feedback" element={<FeedbackDashboard />} />
             <Route path="resources" element={<ResourcesLibrary />} />
 
             {/* Default */}
-            <Route path="*" element={<Navigate to="/app/student/upload" replace />} />
+            <Route path="*" element={<Navigate to="/app/student/generator" replace />} />
         </Routes>
     );
 };
