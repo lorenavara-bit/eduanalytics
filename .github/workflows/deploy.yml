@@ -30,4 +30,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lftp
-          lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow no; set ftp:passive-mode true; mirror -R ./build/ ./public_html --parallel=10 --exclude-glob .git* --exclude-glob .htaccess; quit" -u "${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }}" ${{ secrets.FTP_SERVER }}
+          echo "machine ${{ secrets.FTP_SERVER }} login ${{ secrets.FTP_USERNAME }} password ${{ secrets.FTP_PASSWORD }}" > ~/.netrc
+          chmod 600 ~/.netrc
+          lftp -e "set ssl:verify-certificate no; set ftp:ssl-allow no; set ftp:passive-mode true; mirror -R ./build/ ./public_html --parallel=10 --exclude-glob .git* --exclude-glob .htaccess; quit" ${{ secrets.FTP_SERVER }}
